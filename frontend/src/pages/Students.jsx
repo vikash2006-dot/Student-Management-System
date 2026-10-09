@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 
 function Students() {
@@ -12,9 +12,26 @@ function Students() {
     phone: ''
   });
 
+  // State for list of students
+  const [students, setStudents] = useState([]);
+
   // State for submission feedback and loading indicator
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
+
+  // Fetch students from backend on component mount
+  const fetchStudents = async () => {
+    try {
+      const response = await api.get('/students');
+      setStudents(response.data.data || []);
+    } catch (error) {
+      console.error('Failed to fetch students:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
 
   // Update form fields on input change
   const handleChange = (e) => {
@@ -30,7 +47,6 @@ function Students() {
     e.preventDefault();
     setStatusMessage({ type: '', text: '' });
 
-    // Client-side validation: ensure no empty fields
     const { name, rollNo, email, course, semester, phone } = formData;
     if (!name || !rollNo || !email || !course || !semester || !phone) {
       setStatusMessage({
@@ -43,16 +59,13 @@ function Students() {
     try {
       setLoading(true);
 
-      // Send POST request to backend API
       const response = await api.post('/students', formData);
 
-      // Show success feedback
       setStatusMessage({
         type: 'success',
         text: response.data.message || 'Student added successfully!'
       });
 
-      // Clear the form fields after successful submission
       setFormData({
         name: '',
         rollNo: '',
@@ -61,8 +74,10 @@ function Students() {
         semester: '',
         phone: ''
       });
+
+      // Refresh the students list after adding
+      fetchStudents();
     } catch (error) {
-      // Show backend error message (e.g. duplicate roll number or validation error)
       const errorMessage =
         error.response?.data?.message ||
         'Failed to connect to the server. Please ensure the backend is running.';
@@ -76,6 +91,36 @@ function Students() {
     }
   };
 
+  // Handle student deletion with confirmation
+  const handleDelete = async (id, name) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the student "${name}"? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/students/${id}`);
+
+      setStatusMessage({
+        type: 'success',
+        text: 'Student deleted successfully!'
+      });
+
+      // Refresh the students list after deleting
+      fetchStudents();
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.message ||
+        'Failed to delete the student. Please try again.';
+
+      setStatusMessage({
+        type: 'error',
+        text: errorMessage
+      });
+    }
+  };
+
   return (
     <div className="page-container">
       <div className="card">
@@ -84,7 +129,6 @@ function Students() {
           Enter student information below to add a new record to MongoDB.
         </p>
 
-        {/* Success or error message notification */}
         {statusMessage.text && (
           <div className={`alert alert-${statusMessage.type}`}>
             {statusMessage.text}
@@ -181,8 +225,57 @@ function Students() {
           </button>
         </form>
       </div>
+
+      {/* Students List Table */}
+      <div className="card" style={{ marginTop: '2rem' }}>
+        <h2>All Students</h2>
+        {students.length === 0 ? (
+          <p className="subtitle">No students found. Add one above.</p>
+        ) : (
+          <table className="students-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
+                <th style={{ padding: '8px' }}>Name</th>
+                <th style={{ padding: '8px' }}>Roll No</th>
+                <th style={{ padding: '8px' }}>Email</th>
+                <th style={{ padding: '8px' }}>Course</th>
+                <th style={{ padding: '8px' }}>Semester</th>
+                <th style={{ padding: '8px' }}>Phone</th>
+                <th style={{ padding: '8px' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {students.map((student) => (
+                <tr key={student._id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '8px' }}>{student.name}</td>
+                  <td style={{ padding: '8px' }}>{student.rollNo}</td>
+                  <td style={{ padding: '8px' }}>{student.email}</td>
+                  <td style={{ padding: '8px' }}>{student.course}</td>
+                  <td style={{ padding: '8px' }}>{student.semester}</td>
+                  <td style={{ padding: '8px' }}>{student.phone}</td>
+                  <td style={{ padding: '8px' }}>
+                    <button
+                      onClick={() => handleDelete(student._id, student.name)}
+                      style={{
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
 
-export default Students;
+export default Students
