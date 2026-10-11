@@ -1,7 +1,5 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 
 const emptyForm = {
@@ -14,9 +12,6 @@ const emptyForm = {
 };
 
 function Students() {
-  // Check authenticated user and role
-  // Form state
-  // Check if user is logged in
   const token = localStorage.getItem('token');
   const currentUser = (() => {
     try {
@@ -28,41 +23,24 @@ function Students() {
   })();
   const isAdmin = currentUser?.role === 'admin';
 
-  // Form state for student details
-  const [formData, setFormData] = useState({
-    name: '',
-    rollNo: '',
-    email: '',
-    course: '',
-    semester: '',
-    phone: ''
-  });
+  // Form state for student details (used for Add and Edit)
+  const [formData, setFormData] = useState(emptyForm);
+  const [editId, setEditId] = useState(null);
 
-  // Student records and filters
-  const [students, setStudents] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [courseFilter, setCourseFilter] = useState('');
-  const [semesterFilter, setSemesterFilter] = useState('');
-
-  // Submission feedback and loading
-  // State for list of students
+  // Student list state
   const [students, setStudents] = useState([]);
   const [fetching, setFetching] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  // State for submission feedback and loading indicator
+  // Search and filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [courseFilter, setCourseFilter] = useState('');
+  const [semesterFilter, setSemesterFilter] = useState('');
+
+  // Submission feedback and loading indicator
   const [loading, setLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState({
-    type: '',
-    text: ''
-  });
+  const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
 
-  // Update form fields
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
-    setFormData((prevData) => ({
-      ...prevData,
   // Fetch students from backend on mount
   const fetchStudents = async () => {
     try {
@@ -73,19 +51,6 @@ function Students() {
       console.error('Failed to fetch students:', error);
     } finally {
       setFetching(false);
-  const [students, setStudents] = useState([]);
-  const [formData, setFormData] = useState(emptyForm);
-  const [editId, setEditId] = useState(null);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-
-  // Get students from the backend
-  const fetchStudents = async () => {
-    try {
-      const response = await api.get('/students');
-      setStudents(response.data.data);
-    } catch (err) {
-      setError('Could not load students');
     }
   };
 
@@ -94,180 +59,101 @@ function Students() {
   }, []);
 
   // Update form fields on input change
-  // Update form values when typing
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [name]: value
-    });
+    }));
   };
 
-  // Fetch students from the backend
-  const fetchStudents = async () => {
-    try {
-      const response = await api.get('/students');
-      setStudents(response.data.data || []);
-    } catch (error) {
-      setStatusMessage({
-        type: 'error',
-        text: 'Failed to load students. Please check the backend.'
-      });
-    }
-  };
-
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-
-  // Get unique courses and semesters for dropdowns
-  const courses = [
-    ...new Set(
-      students.map((student) => student.course).filter(Boolean)
-    )
-  ];
-
-  const semesters = [
-    ...new Set(
-      students.map((student) => student.semester).filter(Boolean)
-    )
-  ];
-
-  // Search and filter student records
-  const filteredStudents = students.filter((student) => {
-    const query = searchQuery.trim().toLowerCase();
-
-    const matchesSearch =
-      (student.name || '').toLowerCase().includes(query) ||
-      (student.rollNo || '').toLowerCase().includes(query) ||
-      (student.email || '').toLowerCase().includes(query);
-
-    const matchesCourse =
-      !courseFilter || student.course === courseFilter;
-
-    const matchesSemester =
-      !semesterFilter || student.semester === semesterFilter;
-
-    return matchesSearch && matchesCourse && matchesSemester;
-  });
-
-  // Clear all filters
-  const clearFilters = () => {
-    setSearchQuery('');
-    setCourseFilter('');
-    setSemesterFilter('');
-  };
-
-  // Submit the new student form
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    setStatusMessage({ type: '', text: '' });
-  // Open the form with existing student details
+  // Open the form populated with existing student details for editing
   const handleEdit = (student) => {
     setEditId(student._id);
-
     setFormData({
-      name: student.name,
-      rollNo: student.rollNo,
-      email: student.email,
-      course: student.course,
-      semester: student.semester,
-      phone: student.phone
+      name: student.name || '',
+      rollNo: student.rollNo || '',
+      email: student.email || '',
+      course: student.course || '',
+      semester: student.semester || '',
+      phone: student.phone || ''
     });
-
-    setMessage('');
-    setError('');
+    setStatusMessage({ type: '', text: '' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Cancel editing
+  // Cancel editing and reset form
   const handleCancel = () => {
     setEditId(null);
     setFormData(emptyForm);
-    setMessage('');
-    setError('');
+    setStatusMessage({ type: '', text: '' });
   };
 
-  // Add or update a student
+  // Handle form submission (Add or Update)
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Ensure user is authenticated and is an admin
-    if (!token) {
-      setStatusMessage({
-        type: 'error',
-        text: 'Access denied. Please log in before adding a student.'
-      });
-      return;
-    }
-
-    if (!isAdmin) {
-      setStatusMessage({
-        type: 'error',
-        text: 'Access denied: Only administrators are authorized to add students.'
-      });
-      return;
-    }
+    setStatusMessage({ type: '', text: '' });
 
     // Client-side validation: ensure no empty fields
     const { name, rollNo, email, course, semester, phone } = formData;
-
-    if (!name || !rollNo || !email || !course || !semester || !phone) {
+    if (
+      !name.trim() ||
+      !rollNo.trim() ||
+      !email.trim() ||
+      !course.trim() ||
+      !semester.trim() ||
+      !phone.trim()
+    ) {
       setStatusMessage({
         type: 'error',
         text: 'Please fill in all the required fields.'
       });
       return;
     }
-    setMessage('');
-    setError('');
 
     try {
       setLoading(true);
 
-      const response = await api.post('/students', formData);
-
-      setStatusMessage({
-        type: 'success',
-        text: response.data.message || 'Student added successfully!'
-      });
-
-      // Clear the form
-      setFormData({
-        name: '',
-        rollNo: '',
-        email: '',
-        course: '',
-        semester: '',
-        phone: ''
-      });
-
-      // Refresh the student list
-      await fetchStudents();
-      // Refresh list to show newly added student
-      fetchStudents();
-    } catch (error) {
-      if (error.response?.status === 403) {
-        setStatusMessage({
-          type: 'error',
-          text: 'Access denied: You do not have permission to add students. Administrator role required.'
+      let response;
+      if (editId) {
+        // Update existing student: PUT /api/students/:id
+        response = await api.put(`/students/${editId}`, {
+          name: name.trim(),
+          rollNo: rollNo.trim(),
+          email: email.trim(),
+          course: course.trim(),
+          semester: semester.trim(),
+          phone: phone.trim()
         });
-      } else if (error.response?.status === 401) {
+
         setStatusMessage({
-          type: 'error',
-          text: 'Session expired or not authenticated. Please log in again.'
+          type: 'success',
+          text: response.data.message || 'Student updated successfully!'
         });
       } else {
-        const errorMessage =
-          error.response?.data?.message ||
-          'Failed to connect to the server. Please ensure the backend is running.';
+        // Add new student: POST /api/students
+        response = await api.post('/students', {
+          name: name.trim(),
+          rollNo: rollNo.trim(),
+          email: email.trim(),
+          course: course.trim(),
+          semester: semester.trim(),
+          phone: phone.trim()
+        });
 
         setStatusMessage({
-          type: 'error',
-          text: errorMessage
+          type: 'success',
+          text: response.data.message || 'Student added successfully!'
         });
       }
+
+      // Reset form fields
+      setFormData(emptyForm);
+      setEditId(null);
+
+      // Refresh list to show updated student records
+      await fetchStudents();
+    } catch (error) {
       const errorMessage =
         error.response?.data?.message ||
         'Failed to connect to the server. Please ensure the backend is running.';
@@ -278,30 +164,6 @@ function Students() {
       });
     } finally {
       setLoading(false);
-      let response;
-
-      if (editId) {
-        // Update the selected student
-        response = await api.put(
-          `/students/${editId}`,
-          formData
-        );
-      } else {
-        // Add a new student
-        response = await api.post('/students', formData);
-      }
-
-      setMessage(response.data.message);
-
-      setFormData(emptyForm);
-      setEditId(null);
-
-      // Refresh the student list
-      await fetchStudents();
-    } catch (err) {
-      setError(
-        err.response?.data?.message || 'Something went wrong'
-      );
     }
   };
 
@@ -319,15 +181,16 @@ function Students() {
       setDeletingId(id);
       const response = await api.delete(`/students/${id}`);
 
-      // Update the displayed list only after successful deletion
-      setStudents((prevStudents) =>
-        prevStudents.filter((student) => student._id !== id)
-      );
+      setStudents((prev) => prev.filter((s) => s._id !== id));
 
       setStatusMessage({
         type: 'success',
         text: response.data?.message || 'Student deleted successfully!'
       });
+
+      if (editId === id) {
+        handleCancel();
+      }
     } catch (error) {
       const errorMessage =
         error.response?.data?.message ||
@@ -342,242 +205,166 @@ function Students() {
     }
   };
 
+  // Filter students by search and dropdowns
+  const courses = Array.from(new Set(students.map((s) => s.course).filter(Boolean)));
+  const semesters = Array.from(new Set(students.map((s) => s.semester).filter(Boolean)));
+
+  const filteredStudents = students.filter((student) => {
+    const matchesSearch =
+      !searchQuery ||
+      student.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.rollNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.email?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesCourse = !courseFilter || student.course === courseFilter;
+    const matchesSemester = !semesterFilter || student.semester === semesterFilter;
+
+    return matchesSearch && matchesCourse && matchesSemester;
+  });
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCourseFilter('');
+    setSemesterFilter('');
+  };
+
   return (
     <div className="page-container">
-      {/* Add Student Form */}
+      {/* Student Form Card (Add or Edit) */}
       <div className="card">
-        <h2>Add New Student</h2>
-
+        <h2>{editId ? 'Edit Student Details' : 'Add New Student'}</h2>
         <p className="subtitle">
-          Enter student information below to add a new record to MongoDB.
+          {editId
+            ? 'Update the student information below and save your changes.'
+            : 'Enter student information below to add a new record to MongoDB.'}
         </p>
-        <h2>{editId ? 'Edit Student' : 'Add New Student'}</h2>
-
-        {/* Not Logged In Warning */}
-        {!token && (
-          <div className="alert alert-error" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <span>🔒 <strong>Login Required:</strong> You must be logged in as an administrator to add a student record.</span>
-            <Link to="/login" className="btn btn-primary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}>
-              Log In Now
-            </Link>
-          </div>
-        )}
-
-        {/* Non-Admin Warning */}
-        {token && !isAdmin && (
-          <div className="alert alert-error" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <span>🚫 <strong>Admin Access Required:</strong> Your account has regular user permissions. Only administrators can add new students.</span>
-            <Link to="/view-students" className="btn btn-secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}>
-              View Students
-            </Link>
-          </div>
-        )}
 
         {/* Success or error message notification */}
         {statusMessage.text && (
           <div className={`alert alert-${statusMessage.type}`}>
             {statusMessage.text}
           </div>
-        {message && (
-          <div className="alert alert-success">{message}</div>
         )}
 
-        {error && (
-          <div className="alert alert-error">{error}</div>
-        )}
-
-        {/* Render form only if logged in as admin */}
-        {isAdmin && (
         <form onSubmit={handleSubmit} className="student-form">
-
           <div className="form-group">
-            <label>Full Name *</label>
+            <label htmlFor="name">Full Name *</label>
             <input
+              type="text"
+              id="name"
               name="name"
+              placeholder="e.g. John Doe"
               value={formData.name}
               onChange={handleChange}
-              disabled={loading || !token}
+              disabled={loading}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Roll Number *</label>
+            <label htmlFor="rollNo">Roll Number *</label>
             <input
+              type="text"
+              id="rollNo"
               name="rollNo"
+              placeholder="e.g. 21CS001"
               value={formData.rollNo}
               onChange={handleChange}
-              disabled={loading || !token}
+              disabled={loading}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Email Address *</label>
+            <label htmlFor="email">Email Address *</label>
             <input
               type="email"
+              id="email"
               name="email"
+              placeholder="e.g. john@college.edu"
               value={formData.email}
               onChange={handleChange}
-              disabled={loading || !token}
+              disabled={loading}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Course *</label>
+            <label htmlFor="course">Course *</label>
             <input
+              type="text"
+              id="course"
               name="course"
+              placeholder="e.g. B.Tech CSE"
               value={formData.course}
               onChange={handleChange}
-              disabled={loading || !token}
+              disabled={loading}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Semester *</label>
+            <label htmlFor="semester">Semester *</label>
             <input
+              type="text"
+              id="semester"
               name="semester"
+              placeholder="e.g. 6th"
               value={formData.semester}
               onChange={handleChange}
-              disabled={loading || !token}
+              disabled={loading}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Phone Number *</label>
+            <label htmlFor="phone">Phone Number *</label>
             <input
               type="tel"
+              id="phone"
               name="phone"
+              placeholder="e.g. 9876543210"
               value={formData.phone}
               onChange={handleChange}
-              disabled={loading || !token}
+              disabled={loading}
               required
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Adding Student...' : 'Submit Student'}
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            {loading ? 'Adding Student...' : 'Submit Student'}
-          <button type="submit" className="btn btn-primary" disabled={loading || !token}>
-            {loading ? 'Adding Student...' : !token ? '🔒 Please Log In to Submit' : 'Submit Student'}
-          <button type="submit" className="btn btn-primary">
-            {editId ? 'Update Student' : 'Add Student'}
-          </button>
-
-          {editId && (
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button
-              type="button"
-              className="btn"
-              onClick={handleCancel}
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
             >
-              Cancel
+              {loading
+                ? (editId ? 'Updating Student...' : 'Adding Student...')
+                : (editId ? 'Update Student' : 'Submit Student')}
             </button>
-          )}
-        </form>
-        )}
 
-      </div>
-
-      {/* Existing Students List */}
-      <div className="card student-list-card">
-        <h2>Existing Students</h2>
-        <p className="subtitle">
-          View all registered students or delete a record.
-        </p>
-
-        {fetching ? (
-          <p className="status-text">Loading students...</p>
-        ) : students.length === 0 ? (
-          <div className="empty-state">
-            <p>No student records found. Add a student using the form above.</p>
-          </div>
-        ) : (
-          <div className="table-responsive">
-            <table className="student-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Roll No</th>
-                  <th>Email</th>
-                  <th>Course</th>
-                  <th>Semester</th>
-                  <th>Phone</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((student) => (
-                  <tr key={student._id}>
-                    <td>{student.name}</td>
-                    <td>{student.rollNo}</td>
-                    <td>{student.email}</td>
-                    <td>{student.course}</td>
-                    <td>{student.semester}</td>
-                    <td>{student.phone}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleDelete(student._id, student.name)}
-                        disabled={deletingId === student._id}
-                      >
-                        {deletingId === student._id ? 'Deleting...' : 'Delete'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-      <div className="card" style={{ marginTop: '24px' }}>
-        <h2>Student List</h2>
-
-        {students.length === 0 ? (
-          <p>No students found.</p>
-        ) : (
-          students.map((student) => (
-            <div
-              key={student._id}
-              style={{
-                borderBottom: '1px solid #ddd',
-                padding: '16px 0'
-              }}
-            >
-              <h3>{student.name}</h3>
-              <p>Roll Number: {student.rollNo}</p>
-              <p>Email: {student.email}</p>
-              <p>Course: {student.course}</p>
-              <p>Semester: {student.semester}</p>
-              <p>Phone: {student.phone}</p>
-
+            {editId && (
               <button
-                className="btn btn-primary"
-                onClick={() => handleEdit(student)}
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleCancel}
+                disabled={loading}
               >
-                Edit
+                Cancel
               </button>
-            </div>
-          ))
-        )}
+            )}
+          </div>
+        </form>
       </div>
 
-      {/* Student Records, Search and Filters */}
-      <div className="card">
-        <h2>Student Records</h2>
-
+      {/* Student Records List with Search, Filters, Edit, and Delete Actions */}
+      <div className="card" style={{ marginTop: '1.5rem' }}>
+        <h2>Registered Students</h2>
         <p className="subtitle">
-          Search by name, roll number, or email. Filter by course or semester.
+          Search, view, edit, or delete existing student records.
         </p>
 
-        <div className="student-filters">
+        {/* Filters and search bar */}
+        <div className="student-filters" style={{ marginBottom: '1rem' }}>
           <input
             type="text"
             placeholder="Search name, roll number, or email..."
@@ -612,47 +399,92 @@ function Students() {
             ))}
           </select>
 
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={clearFilters}
-          >
-            Clear Filters
-          </button>
+          {(searchQuery || courseFilter || semesterFilter) && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={clearFilters}
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
 
-        <p>
-          Showing {filteredStudents.length} of {students.length} students
-        </p>
-
-        {filteredStudents.length === 0 ? (
-          <p>
-            {students.length === 0
-              ? 'No students found. Add a student using the form above.'
-              : 'No students match your search or filters.'}
-          </p>
+        {fetching ? (
+          <p className="status-text">Loading students from database...</p>
+        ) : filteredStudents.length === 0 ? (
+          <div className="empty-state">
+            <p>
+              {students.length === 0
+                ? 'No students found. Add a student using the form above.'
+                : 'No students match your search or filter criteria.'}
+            </p>
+          </div>
         ) : (
-          <div className="student-list">
-            {filteredStudents.map((student) => (
-              <div
-                className="student-record"
-                key={student._id || student.rollNo}
-              >
-                <h3>{student.name}</h3>
-                <p><strong>Roll Number:</strong> {student.rollNo}</p>
-                <p><strong>Email:</strong> {student.email}</p>
-                <p><strong>Course:</strong> {student.course}</p>
-                <p><strong>Semester:</strong> {student.semester}</p>
-                <p><strong>Phone:</strong> {student.phone || 'Not provided'}</p>
-              </div>
-            ))}
+          <div className="table-responsive">
+            <table className="student-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Roll No</th>
+                  <th>Email</th>
+                  <th>Course</th>
+                  <th>Semester</th>
+                  <th>Phone</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStudents.map((student) => (
+                  <tr key={student._id}>
+                    <td className="student-name">{student.name}</td>
+                    <td>
+                      <span className="badge badge-roll">{student.rollNo}</span>
+                    </td>
+                    <td>{student.email}</td>
+                    <td>{student.course}</td>
+                    <td>
+                      <span className="badge badge-sem">{student.semester}</span>
+                    </td>
+                    <td>{student.phone}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => handleEdit(student)}
+                          style={{ padding: '0.3rem 0.65rem', fontSize: '0.82rem' }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDelete(student._id, student.name)}
+                          disabled={deletingId === student._id}
+                          style={{
+                            backgroundColor: '#dc2626',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '0.3rem 0.65rem',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.82rem'
+                          }}
+                        >
+                          {deletingId === student._id ? 'Deleting...' : '🗑️ Delete'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
     </div>
-
   );
 }
 
 export default Students;
-

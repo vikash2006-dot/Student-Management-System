@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import StudentTable from '../components/StudentTable';
+import EditStudentModal from '../components/EditStudentModal';
 
 // Beginner-friendly ViewStudents Page Component
 // Allows regular users and admins to view and search students
-// Displays delete action controls only for administrators
+// Supports Editing and Deleting student records
 function ViewStudents() {
   const token = localStorage.getItem('token');
   const currentUser = (() => {
@@ -24,6 +25,7 @@ function ViewStudents() {
   const [errorMessage, setErrorMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
+  const [editingStudent, setEditingStudent] = useState(null);
 
   // Function to fetch students from backend with optional search filter
   const fetchStudents = async (query = searchTerm) => {
@@ -54,10 +56,6 @@ function ViewStudents() {
           'Failed to connect to the server. Please ensure the backend is running.';
         setErrorMessage(msg);
       }
-      const msg =
-        error.response?.data?.message ||
-        'Failed to connect to the server. Please make sure the backend is running.';
-      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
@@ -67,7 +65,7 @@ function ViewStudents() {
     fetchStudents();
   }, []);
 
-  // Handle live or debounced search change
+  // Handle live search change
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
@@ -123,7 +121,7 @@ function ViewStudents() {
             >
               🔄 Refresh
             </button>
-            {/* Add Student button is rendered only for Admin users */}
+            {/* Add Student button is rendered only for Admin users or logged-in users */}
             {isAdmin && (
               <Link to="/students" className="btn btn-primary">
                 + Add Student
@@ -168,20 +166,13 @@ function ViewStudents() {
         {!loading && errorMessage && (
           <div className="alert alert-error">
             <p><strong>Error:</strong> {errorMessage}</p>
-            {!token && (
-              <Link to="/login" className="btn btn-primary" style={{ marginTop: '0.75rem', display: 'inline-block' }}>
-                Log In Now
-              </Link>
-            )}
-            {token && (
-              <button
-                onClick={() => fetchStudents(searchTerm)}
-                className="btn btn-retry"
-                style={{ marginTop: '0.75rem' }}
-              >
-                Try Again
-              </button>
-            )}
+            <button
+              onClick={() => fetchStudents(searchTerm)}
+              className="btn btn-retry"
+              style={{ marginTop: '0.75rem' }}
+            >
+              Try Again
+            </button>
           </div>
         )}
 
@@ -210,18 +201,33 @@ function ViewStudents() {
               <span>Total Students: <strong>{students.length}</strong></span>
               {searchTerm && <span>Filtered by: "<em>{searchTerm}</em>"</span>}
             </div>
-            {/* Pass students data and admin permissions down to StudentTable */}
+            {/* Pass students data, edit handler, and delete handler down to StudentTable */}
             <StudentTable
               students={students}
               isAdmin={isAdmin}
+              onEdit={(student) => setEditingStudent(student)}
               onDelete={handleDelete}
             />
           </div>
         )}
       </div>
+
+      {/* Edit Student Modal */}
+      <EditStudentModal
+        student={editingStudent}
+        isOpen={!!editingStudent}
+        onClose={() => setEditingStudent(null)}
+        onSuccess={() => {
+          fetchStudents(searchTerm);
+          setEditingStudent(null);
+          setStatusMessage({
+            type: 'success',
+            text: 'Student updated successfully!'
+          });
+        }}
+      />
     </div>
   );
 }
 
 export default ViewStudents;
-
