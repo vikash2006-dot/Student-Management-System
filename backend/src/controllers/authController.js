@@ -3,9 +3,9 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 // Helper function to generate JWT token for a user
-const generateToken = (userId) => {
+const generateToken = (userId, role) => {
   const secret = process.env.JWT_SECRET || 'college_project_jwt_secret_key_123';
-  return jwt.sign({ id: userId }, secret, {
+  return jwt.sign({ id: userId, role }, secret, {
     expiresIn: '7d' // Token expires in 7 days
   });
 };
@@ -47,15 +47,16 @@ const registerUser = async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 5. Create new user in MongoDB
+    // 5. Create new user in MongoDB - always enforce 'user' role for public registration
     const newUser = await User.create({
       name: name.trim(),
       email: normalizedEmail,
-      password: hashedPassword
+      password: hashedPassword,
+      role: 'user'
     });
 
     // 6. Generate JWT token
-    const token = generateToken(newUser._id);
+    const token = generateToken(newUser._id, newUser.role);
 
     return res.status(201).json({
       success: true,
@@ -64,7 +65,8 @@ const registerUser = async (req, res, next) => {
       user: {
         id: newUser._id,
         name: newUser.name,
-        email: newUser.email
+        email: newUser.email,
+        role: newUser.role
       }
     });
   } catch (error) {
@@ -108,7 +110,7 @@ const loginUser = async (req, res, next) => {
     }
 
     // 4. Generate JWT token
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, user.role);
 
     return res.status(200).json({
       success: true,
@@ -117,7 +119,8 @@ const loginUser = async (req, res, next) => {
       user: {
         id: user._id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
   } catch (error) {
@@ -140,3 +143,4 @@ module.exports = {
   loginUser,
   getMe
 };
+

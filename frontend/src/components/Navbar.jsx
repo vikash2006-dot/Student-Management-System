@@ -65,23 +65,42 @@ function Navbar() {
               View Students
             </Link>
           </li>
-          <li>
-            <Link
-              to="/students"
-              className={location.pathname === '/students' ? 'nav-link active' : 'nav-link'}
-            >
-              Add Student
-            </Link>
-          </li>
+          {/* Add Student is restricted to Admins */}
+          {currentUser?.role === 'admin' && (
+            <li>
+              <Link
+                to="/students"
+                className={location.pathname === '/students' ? 'nav-link active' : 'nav-link'}
+              >
+                Add Student
+              </Link>
+            </li>
+          )}
 
           {/* Conditional rendering based on authentication state */}
           {currentUser ? (
             <li className="nav-auth-user">
-              <span className="user-greeting">👋 {currentUser.name}</span>
+              <span className="user-greeting">
+                👋 {currentUser.name}{' '}
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '4px',
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    backgroundColor: currentUser.role === 'admin' ? '#fef3c7' : '#e0e7ff',
+                    color: currentUser.role === 'admin' ? '#92400e' : '#3730a3'
+                  }}
+                >
+                  {currentUser.role || 'user'}
+                </span>
+              </span>
               <button onClick={handleLogout} className="btn-logout">
                 Logout
               </button>
             </li>
+
           ) : (
             <>
               <li>

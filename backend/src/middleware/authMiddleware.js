@@ -48,4 +48,32 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+// Middleware to authorize specific user roles (e.g. 'admin')
+// Must be used after protect middleware so req.user is set
+const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    // Check if authenticated user exists
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Access denied. Please log in first.'
+      });
+    }
+
+    // Check if user's role matches any allowed role
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You do not have permission to perform this action.'
+      });
+    }
+
+    next();
+  };
+};
+
+module.exports = {
+  protect,
+  authorizeRoles
+};
+

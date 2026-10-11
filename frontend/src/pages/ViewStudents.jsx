@@ -4,23 +4,41 @@ import api from '../services/api';
 import StudentTable from '../components/StudentTable';
 
 // Beginner-friendly ViewStudents Page Component
-// Uses useState for state management and useEffect to fetch student records
+// Allows regular users and admins to view and search students
+// Displays delete action controls only for administrators
 function ViewStudents() {
-  // 1. Define states using React useState hook
+  const token = localStorage.getItem('token');
+  const currentUser = (() => {
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const isAdmin = currentUser?.role === 'admin';
+
+  // State management
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
 
-  // 2. Function to fetch all students from the backend GET /api/students
-  const fetchStudents = async () => {
+  // Function to fetch students from backend with optional search filter
+  const fetchStudents = async (query = searchTerm) => {
     try {
       setLoading(true);
       setErrorMessage('');
 
-      // Send GET request to backend API
-      const response = await api.get('/students');
+      // Send GET request to backend API (with search query parameter if provided)
+      const params = {};
+      if (query && query.trim()) {
+        params.search = query.trim();
+      }
 
-      // Update students state with the data from the server
+      const response = await api.get('/students', { params });
+
       if (response.data && response.data.data) {
         setStudents(response.data.data);
       } else {
@@ -28,6 +46,14 @@ function ViewStudents() {
       }
     } catch (error) {
       console.error('Error fetching students:', error);
+      if (error.response?.status === 401) {
+        setErrorMessage('Access denied or session expired. Please log in to view student records.');
+      } else {
+        const msg =
+          error.response?.data?.message ||
+          'Failed to connect to the server. Please ensure the backend is running.';
+        setErrorMessage(msg);
+      }
       const msg =
         error.response?.data?.message ||
         'Failed to connect to the server. Please make sure the backend is running.';
@@ -37,10 +63,46 @@ function ViewStudents() {
     }
   };
 
-  // 3. useEffect hook runs automatically once when the page loads
   useEffect(() => {
     fetchStudents();
   }, []);
+
+  // Handle live or debounced search change
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    fetchStudents(value);
+  };
+
+  // Handle student deletion (Admin only)
+  const handleDelete = async (id, name) => {
+    if (!isAdmin) {
+      alert('Access denied: Only administrators have permission to delete students.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${name}"? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/students/${id}`);
+      setStudents((prev) => prev.filter((s) => s._id !== id));
+      setStatusMessage({
+        type: 'success',
+        text: `Student "${name}" deleted successfully!`
+      });
+    } catch (error) {
+      const msg =
+        error.response?.data?.message ||
+        'Failed to delete student. Please try again.';
+      setStatusMessage({
+        type: 'error',
+        text: msg
+      });
+    }
+  };
 
   return (
     <div className="page-container page-container-wide">
@@ -50,22 +112,49 @@ function ViewStudents() {
           <div>
             <h2>All Registered Students</h2>
             <p className="subtitle">
-              View and verify all registered student records from the database.
+              View and search all registered student records in the database.
             </p>
           </div>
           <div className="header-actions">
             <button
-              onClick={fetchStudents}
+              onClick={() => fetchStudents(searchTerm)}
               className="btn btn-secondary"
               disabled={loading}
             >
               🔄 Refresh
             </button>
-            <Link to="/students" className="btn btn-primary">
-              + Add Student
-            </Link>
+            {/* Add Student button is rendered only for Admin users */}
+            {isAdmin && (
+              <Link to="/students" className="btn btn-primary">
+                + Add Student
+              </Link>
+            )}
           </div>
         </div>
+
+        {/* Search bar accessible by both regular users and admins */}
+        <div style={{ marginBottom: '1.25rem' }}>
+          <input
+            type="text"
+            placeholder="🔍 Search students by name, roll no, email, or course..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            style={{
+              width: '100%',
+              padding: '0.65rem 0.85rem',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              fontSize: '0.92rem'
+            }}
+          />
+        </div>
+
+        {/* Action feedback banner */}
+        {statusMessage.text && (
+          <div className={`alert alert-${statusMessage.type}`}>
+            {statusMessage.text}
+          </div>
+        )}
 
         {/* 1. Loading State */}
         {loading && (
@@ -79,13 +168,20 @@ function ViewStudents() {
         {!loading && errorMessage && (
           <div className="alert alert-error">
             <p><strong>Error:</strong> {errorMessage}</p>
-            <button
-              onClick={fetchStudents}
-              className="btn btn-retry"
-              style={{ marginTop: '0.75rem' }}
-            >
-              Try Again
-            </button>
+            {!token && (
+              <Link to="/login" className="btn btn-primary" style={{ marginTop: '0.75rem', display: 'inline-block' }}>
+                Log In Now
+              </Link>
+            )}
+            {token && (
+              <button
+                onClick={() => fetchStudents(searchTerm)}
+                className="btn btn-retry"
+                style={{ marginTop: '0.75rem' }}
+              >
+                Try Again
+              </button>
+            )}
           </div>
         )}
 
@@ -94,10 +190,16 @@ function ViewStudents() {
           <div className="state-box empty-box">
             <div className="empty-icon">📂</div>
             <h3>No Students Found</h3>
-            <p>There are currently no student records in the database.</p>
-            <Link to="/students" className="btn btn-primary" style={{ marginTop: '1rem' }}>
-              Add Your First Student
-            </Link>
+            <p>
+              {searchTerm
+                ? `No student records matched "${searchTerm}".`
+                : 'There are currently no student records in the database.'}
+            </p>
+            {isAdmin && (
+              <Link to="/students" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+                Add Your First Student
+              </Link>
+            )}
           </div>
         )}
 
@@ -106,9 +208,14 @@ function ViewStudents() {
           <div>
             <div className="table-summary-bar">
               <span>Total Students: <strong>{students.length}</strong></span>
+              {searchTerm && <span>Filtered by: "<em>{searchTerm}</em>"</span>}
             </div>
-            {/* Pass students data down to StudentTable component via props */}
-            <StudentTable students={students} />
+            {/* Pass students data and admin permissions down to StudentTable */}
+            <StudentTable
+              students={students}
+              isAdmin={isAdmin}
+              onDelete={handleDelete}
+            />
           </div>
         )}
       </div>
@@ -117,3 +224,4 @@ function ViewStudents() {
 }
 
 export default ViewStudents;
+

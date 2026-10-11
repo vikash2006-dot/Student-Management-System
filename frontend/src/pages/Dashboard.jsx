@@ -19,11 +19,24 @@ function Dashboard() {
             <Link to="/view-students" className="btn btn-primary">
               📋 View All Students
             </Link>
-            <Link to="/students" className="btn btn-secondary">
-              ➕ Add New Student
-            </Link>
+            {(() => {
+              try {
+                const user = JSON.parse(localStorage.getItem('user'));
+                if (user?.role === 'admin') {
+                  return (
+                    <Link to="/students" className="btn btn-secondary">
+                      ➕ Add New Student
+                    </Link>
+                  );
+                }
+              } catch {
+                return null;
+              }
+              return null;
+            })()}
           </div>
         </section>
+
       </div>
     </div>
   );
